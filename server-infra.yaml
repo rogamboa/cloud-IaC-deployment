@@ -1,0 +1,115 @@
+Description: >
+    Server Infrastructure Stack.
+
+Mappings: 
+  UbuntuAMI: 
+    us-east-1: 
+      AMI: ami-00ddb0e5626798373
+    us-east-2: 
+      AMI: ami-0dd9f0e7df0f0a138
+    us-west-1: 
+      AMI: ami-0a741b782c2c8632d
+    us-west-2: 
+      AMI: ami-0ac73f33a1888c64a
+  
+Parameters:
+    EnvironmentName:
+        Type: String
+        Description: Environment name that will be used as a prefix for resource names
+        
+    InstanceType:
+        Type: String
+        Description: Instance type to use for servers
+        Default: t2.micro
+        AllowedValues:
+          - t2.micro
+          - t2.small
+          - t2.medium
+          - t3.micro
+          - t3.small
+          - t3.medium
+          
+Resources:
+    LoadBalancerSecGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties: 
+            GroupDescription: Allow http traffic to load balancer
+            SecurityGroupIngress: 
+                - IpProtocol: tcp
+                  FromPort: 80
+                  ToPort: 80
+                  CidrIp: 0.0.0.0/0
+            SecurityGroupEgress: 
+                - IpProtocol: tcp
+                  FromPort: 80
+                  ToPort: 80
+                  CidrIp: 0.0.0.0/0
+            VpcId:
+                Fn::ImportValue:
+                    !Sub "${EnvironmentName}-VPCID"
+                    
+    ServerSecGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties: 
+            GroupDescription: Allow http traffic to servers and SSH from local net
+            SecurityGroupIngress: 
+                - IpProtocol: tcp
+                  FromPort: 80
+                  ToPort: 80
+                  CidrIp: 0.0.0.0/0
+                - IpProtocol: tcp
+                  FromPort: 22
+                  ToPort: 22
+                  CidrIp: 0.0.0.0/0             
+            SecurityGroupEgress: 
+                - IpProtocol: tcp
+                  FromPort: 80
+                  ToPort: 80
+                  CidrIp: 0.0.0.0/0
+            VpcId:
+                Fn::ImportValue:
+                    !Sub "${EnvironmentName}-VPCID"
+
+    WebAppLaunchConfig:
+        Type: AWS::AutoScaling::LaunchConfiguration
+        Properties:
+            UserData: !Base64 |
+                    #!/bin/bash
+                    apt-get update -y
+                    apt-get install apache2 -y
+                    systemctl start apache2.service
+                    cd /var/www/html
+                    echo "Demo Web Server Up and Running!" > index.html
+            ImageId: !FindInMap [UbuntuAMI, !Ref AWS::Region, AMI]
+            IamInstanceProfile: !Ref InstanceProfileForS3ReadOnlyAccess
+            SecurityGroups:
+                - Ref: ServerSecGroup
+            InstanceType: !Ref InstanceType
+            BlockDeviceMappings:
+                - DeviceName: "/dev/sda"
+                  Ebs:
+                      VolumeSize: '10'    
+
+    InstanceProfileForS3ReadOnlyAccess:
+        Type: AWS::IAM::InstanceProfile
+        Properties:
+            Path: /
+            Roles: 
+                - !Ref S3ReadOnlyAccessRole
+                
+    S3ReadOnlyAccessRole:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Statement:
+                    - Effect: Allow
+                      Principal:
+                          Service:
+                          - ec2.amazonaws.com
+                      Action:
+                      - sts:AssumeRole
+            Path: /
+            ManagedPolicyArns:
+                - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+
+    
