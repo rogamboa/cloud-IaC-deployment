@@ -28,6 +28,21 @@ Parameters:
           - t3.micro
           - t3.small
           - t3.medium
+    
+    ServerASGMinSize:
+        Type: Number
+        Description: Minimum number of instances for server autoscaling group to maintain
+        Default: 1
+ 
+    ServerASGDesiredSize:
+        Type: Number
+        Description: Desired number of instances for server autoscaling group to maintain
+        Default: 2
+        
+    ServerASGMaxSize:
+        Type: Number
+        Description: Maximum number of instances for server autoscaling group to maintain
+        Default: 2
           
 Resources:
     LoadBalancerSecGroup:
@@ -63,8 +78,8 @@ Resources:
                   CidrIp: 0.0.0.0/0             
             SecurityGroupEgress: 
                 - IpProtocol: tcp
-                  FromPort: 80
-                  ToPort: 80
+                  FromPort: 0
+                  ToPort: 65535
                   CidrIp: 0.0.0.0/0
             VpcId:
                 Fn::ImportValue:
@@ -86,10 +101,75 @@ Resources:
                 - Ref: ServerSecGroup
             InstanceType: !Ref InstanceType
             BlockDeviceMappings:
-                - DeviceName: "/dev/sda"
+                - DeviceName: "/dev/sda1"
                   Ebs:
                       VolumeSize: '10'    
-
+    
+    WebAppASGroup:
+        Type: AWS::AutoScaling::AutoScalingGroup
+        Properties:
+            MinSize: !Ref ServerASGMinSize
+            DesiredCapacity: !Ref ServerASGDesiredSize
+            MaxSize: !Ref ServerASGMaxSize
+            VPCZoneIdentifier:
+                - Fn::ImportValue:
+                    !Sub ${EnvironmentName}-PRIV-SUBNET-LIST
+            LaunchConfigurationName:
+                !Ref WebAppLaunchConfig
+            TargetGroupARNs:
+                - !Ref AppTargetGroup
+                
+    AppTargetGroup:
+        Type: AWS::ElasticLoadBalancingV2::TargetGroup
+        Properties:
+            HealthCheckIntervalSeconds: 35
+            HealthCheckPath: /
+            HealthCheckProtocol: HTTP
+            HealthCheckTimeoutSeconds: 30
+            HealthyThresholdCount: 2
+            Port: 80
+            Protocol: HTTP
+            UnhealthyThresholdCount: 5
+            VpcId:
+                Fn::ImportValue:
+                    !Sub "${EnvironmentName}-VPCID"
+            
+    AppLoadBalancer:
+        Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+        Properties:
+            IpAddressType: ipv4
+            Scheme: internet-facing
+            SecurityGroups:
+                - !Ref LoadBalancerSecGroup
+            Subnets:
+                - Fn::ImportValue: !Sub ${EnvironmentName}-PUB1-SUBNET
+                - Fn::ImportValue: !Sub ${EnvironmentName}-PUB2-SUBNET
+                
+    LoadBalancerListener:
+        Type: AWS::ElasticLoadBalancingV2::Listener
+        Properties:
+            DefaultActions:
+                - Type: forward
+                  TargetGroupArn: !Ref AppTargetGroup
+            LoadBalancerArn:
+                !Ref AppLoadBalancer
+            Port: 80
+            Protocol: HTTP
+            
+    AppLBListenerRule:
+        Type: AWS::ElasticLoadBalancingV2::ListenerRule
+        Properties:
+            Actions:
+                - Type: forward
+                  TargetGroupArn: !Ref AppTargetGroup
+            Conditions:
+                - Field: path-pattern
+                  Values: 
+                    - /
+            ListenerArn: !Ref LoadBalancerListener
+            Priority: 1
+                  
+    
     InstanceProfileForS3ReadOnlyAccess:
         Type: AWS::IAM::InstanceProfile
         Properties:
