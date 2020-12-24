@@ -1,5 +1,5 @@
 Description: >
-    This template deploys network infrastructure.
+    Network Infrastructure Stack.
 
 Parameters:
 
@@ -220,4 +220,65 @@ Resources:
         Properties:
             RouteTableId: !Ref PrivRouteTable2
             SubnetId: !Ref PrivSubnet2
+            
+Outputs:
+    VPC: 
+        Description: Reference for created VPC
+        Value: !Ref VPC
+        Export:
+          Name: !Sub ${EnvironmentName}-VPCID
+
+    VPCPubRouteTable:
+        Description: Public Routing
+        Value: !Ref PubRouteTable
+        Export:
+          Name: !Sub ${EnvironmentName}-PUB-ROUTE-TABLE
+
+    VPCPrivRouteTable1:
+        Description: Private Routing for private subnet 1
+        Value: !Ref PrivRouteTable1
+        Export:
+            Name: !Sub ${EnvironmentName}-PRIV1-ROUTE-TABLE
+
+    VPCPrivateRouteTable2:
+        Description: Private Routing for private subnet 2
+        Value: !Ref PrivRouteTable2
+        Export:
+            Name: !Sub ${EnvironmentName}-PRIV2-ROUTE-TABLE
+
+    PubSubnets:
+        Description: A list of the public subnets
+        Value: !Join [ ",", [ !Ref PubSubnet1, !Ref PubSubnet2 ]]
+        Export:
+            Name: !Sub ${EnvironmentName}-PUB-SUBNET-LIST
+
+    PrivSubnets:
+        Description: A list of the private subnets
+        Value: !Join [ ",", [ !Ref PrivSubnet1, !Ref PrivSubnet2 ]]
+        Export:
+            Name: !Sub ${EnvironmentName}-PRIV-SUBNET-LIST
+
+    PubSubnet1:
+        Description: Reference to the public subnet 1
+        Value: !Ref PubSubnet1
+        Export:
+            Name: !Sub ${EnvironmentName}-PUB1-SUBNET
+
+    PubSubnet2: 
+        Description: Reference to the public subnet 2 
+        Value: !Ref PubSubnet2
+        Export:
+            Name: !Sub ${EnvironmentName}-PUB2-SUBNET
+
+    PrivSubnet1:
+        Description: Reference to the private subnet 1
+        Value: !Ref PrivSubnet1
+        Export:
+            Name: !Sub ${EnvironmentName}-PRIV1-SUBNET
+
+    PrivSubnet2: 
+        Description: Reference to the private subnet 2
+        Value: !Ref PrivSubnet2
+        Export:
+            Name: !Sub ${EnvironmentName}-PRIV2-SUBNET
 
