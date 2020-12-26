@@ -192,4 +192,11 @@ Resources:
             ManagedPolicyArns:
                 - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
 
-    
+Outputs:
+    AppLoadBalancerDNSName:
+        Description: DNS name of application load balancer for servers
+        Value: !Sub
+            - http://${domain}
+            - { domain: !GetAtt AppLoadBalancer.DNSName }
+        Export:
+          Name: !Sub ${EnvironmentName}-APP-ALB-DNS-NAME
