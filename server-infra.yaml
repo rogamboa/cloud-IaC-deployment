@@ -11,7 +11,28 @@ Mappings:
       AMI: ami-0a741b782c2c8632d
     us-west-2: 
       AMI: ami-0ac73f33a1888c64a
-  
+      
+Metadata:
+    AWS::CloudFormation::Interface:
+        ParameterGroups:
+            - Label:
+                  default: "Environment and Instance Type Configuration"
+              Parameters:
+                  - EnvironmentName
+                  - InstanceType
+            - Label:
+                  default: "Autoscaling Group Configuration"
+              Parameters:
+                  - ServerASGMinSize
+                  - ServerASGDesiredSize
+                  - ServerASGMaxSize
+            - Label:
+                  default: "Bastion Host Configuration"
+              Parameters:
+                  - BastionHostCreation
+                  - KeyPairName
+                  - AllowIpToBastionHost
+                  
 Parameters:
     EnvironmentName:
         Type: String
@@ -43,7 +64,30 @@ Parameters:
         Type: Number
         Description: Maximum number of instances for server autoscaling group to maintain
         Default: 2
-          
+        
+    BastionHostCreation:
+        Type: String
+        Description: Create a bastion host for server access in private subnets
+        AllowedValues:
+            - true
+            - false
+        Default: true
+        
+    KeyPairName:
+        Type: String
+        Description: Key pair name to use for bastion host access and server access (Only used if BastionHost is set to true)
+        
+    AllowIpToBastionHost:
+        Type: String
+        Description: Ip address or IP CIDR block to allow access to bastion host (Only used if BastionHost is set to true)
+        AllowedPattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([1-2][0-9]|[3][0-2]|[0-9])$
+        ConstraintDescription: A valid IP CIDR block must be inputed.
+                      
+Conditions:
+    CreateBastionHostResources: !Equals
+        - !Ref BastionHostCreation
+        - true
+        
 Resources:
     LoadBalancerSecGroup:
         Type: AWS::EC2::SecurityGroup
@@ -103,7 +147,12 @@ Resources:
             BlockDeviceMappings:
                 - DeviceName: "/dev/sda1"
                   Ebs:
-                      VolumeSize: '10'    
+                      VolumeSize: '10'
+            KeyName:
+                Fn::If: 
+                    - CreateBastionHostResources 
+                    - !Ref KeyPairName
+                    - !Ref AWS::NoValue
     
     WebAppASGroup:
         Type: AWS::AutoScaling::AutoScalingGroup
@@ -192,6 +241,49 @@ Resources:
             ManagedPolicyArns:
                 - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
 
+    BastionHostSecGroup:
+        Type: AWS::EC2::SecurityGroup
+        Condition: CreateBastionHostResources
+        Properties: 
+            GroupDescription: Allow ssh access ingress to bastion host and egress to private nets
+            SecurityGroupIngress:
+                - IpProtocol: tcp
+                  FromPort: 22
+                  ToPort: 22
+                  CidrIp: !Ref AllowIpToBastionHost
+            SecurityGroupEgress: 
+                - IpProtocol: tcp
+                  FromPort: 80
+                  ToPort: 80
+                  DestinationSecurityGroupId: !Ref ServerSecGroup
+                - IpProtocol: tcp
+                  FromPort: 22
+                  ToPort: 22
+                  DestinationSecurityGroupId: !Ref ServerSecGroup
+            VpcId:
+                Fn::ImportValue:
+                    !Sub "${EnvironmentName}-VPCID"
+
+    BastionHost:
+        Type: AWS::EC2::Instance
+        Condition: CreateBastionHostResources
+        Properties:
+            UserData: !Base64 |
+                    #!/bin/bash
+                    apt-get update -y
+            ImageId: !FindInMap [UbuntuAMI, !Ref AWS::Region, AMI]
+            SecurityGroupIds:
+                - Ref: BastionHostSecGroup
+            InstanceType: !Ref InstanceType
+            BlockDeviceMappings:
+                - DeviceName: "/dev/sda1"
+                  Ebs:
+                      VolumeSize: '8'
+            KeyName: !Ref KeyPairName
+            SubnetId:
+                Fn::ImportValue:
+                    !Sub ${EnvironmentName}-PUB1-SUBNET
+
 Outputs:
     AppLoadBalancerDNSName:
         Description: DNS name of application load balancer for servers
@@ -199,4 +291,4 @@ Outputs:
             - http://${domain}
             - { domain: !GetAtt AppLoadBalancer.DNSName }
         Export:
-          Name: !Sub ${EnvironmentName}-APP-ALB-DNS-NAME
+            Name: !Sub ${EnvironmentName}-APP-ALB-DNS-NAME
