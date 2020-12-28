@@ -132,13 +132,20 @@ Resources:
     WebAppLaunchConfig:
         Type: AWS::AutoScaling::LaunchConfiguration
         Properties:
-            UserData: !Base64 |
-                    #!/bin/bash
-                    apt-get update -y
-                    apt-get install apache2 -y
-                    systemctl start apache2.service
-                    cd /var/www/html
-                    echo "Demo Web Server Up and Running!" > index.html
+            UserData: 
+                Fn::Base64:
+                    !Sub |
+                        #!/bin/bash
+                        apt-get update -y && apt-get upgrade -y
+                        apt-get install -y python3-setuptools
+                        mkdir -p /opt/aws/bin
+                        wget https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+                        python3 -m easy_install --script-dir /opt/aws/bin aws-cfn-bootstrap-py3-latest.tar.gz
+                        apt-get install apache2 -y
+                        systemctl start apache2.service
+                        cd /var/www/html
+                        echo "Demo Web Server Up and Running!" > index.html
+                        /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource WebAppASGroup --region ${AWS::Region}
             ImageId: !FindInMap [UbuntuAMI, !Ref AWS::Region, AMI]
             IamInstanceProfile: !Ref InstanceProfileForS3ReadOnlyAccess
             SecurityGroups:
@@ -167,6 +174,9 @@ Resources:
                 !Ref WebAppLaunchConfig
             TargetGroupARNs:
                 - !Ref AppTargetGroup
+        CreationPolicy:
+            ResourceSignal: 
+                Count: !Ref ServerASGDesiredSize
                 
     AppTargetGroup:
         Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -255,7 +265,11 @@ Resources:
                 - IpProtocol: tcp
                   FromPort: 80
                   ToPort: 80
-                  DestinationSecurityGroupId: !Ref ServerSecGroup
+                  CidrIp: 0.0.0.0/0
+                - IpProtocol: tcp
+                  FromPort: 443
+                  ToPort: 443
+                  CidrIp: 0.0.0.0/0
                 - IpProtocol: tcp
                   FromPort: 22
                   ToPort: 22
@@ -268,9 +282,16 @@ Resources:
         Type: AWS::EC2::Instance
         Condition: CreateBastionHostResources
         Properties:
-            UserData: !Base64 |
-                    #!/bin/bash
-                    apt-get update -y
+            UserData: 
+                Fn::Base64:
+                    !Sub |
+                        #!/bin/bash
+                        apt-get update -y && apt-get upgrade -y
+                        apt-get install -y python3-setuptools
+                        mkdir -p /opt/aws/bin
+                        wget https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+                        python3 -m easy_install --script-dir /opt/aws/bin aws-cfn-bootstrap-py3-latest.tar.gz
+                        /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource BastionHost --region ${AWS::Region}
             ImageId: !FindInMap [UbuntuAMI, !Ref AWS::Region, AMI]
             SecurityGroupIds:
                 - Ref: BastionHostSecGroup
@@ -283,6 +304,9 @@ Resources:
             SubnetId:
                 Fn::ImportValue:
                     !Sub ${EnvironmentName}-PUB1-SUBNET
+        CreationPolicy:
+            ResourceSignal:
+                Count: 1
 
 Outputs:
     AppLoadBalancerDNSName:
