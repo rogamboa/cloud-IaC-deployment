@@ -21,6 +21,11 @@ Metadata:
                   - EnvironmentName
                   - InstanceType
             - Label:
+                  default: "S3 URI of Deployment Zip File"
+              Parameters:
+                  - S3Uri
+                  - ZipFileName
+            - Label:
                   default: "Autoscaling Group Configuration"
               Parameters:
                   - ServerASGMinSize
@@ -82,6 +87,14 @@ Parameters:
         Description: Ip address or IP CIDR block to allow access to bastion host (Only used if BastionHost is set to true)
         AllowedPattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([1-2][0-9]|[3][0-2]|[0-9])$
         ConstraintDescription: A valid IP CIDR block must be inputed.
+        
+    S3Uri:
+        Type: String
+        Description: S3 URI of where deployment zip file is located (full path to .zip file in S3)
+
+    ZipFileName:
+        Type: String
+        Description: Name of zip file (with .zip extension)
                       
 Conditions:
     CreateBastionHostResources: !Equals
@@ -141,10 +154,16 @@ Resources:
                         mkdir -p /opt/aws/bin
                         wget https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
                         python3 -m easy_install --script-dir /opt/aws/bin aws-cfn-bootstrap-py3-latest.tar.gz
+                        apt install unzip -y
+                        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                        unzip awscliv2.zip
+                        ./aws/install && rm -rf ./aws ./awscliv2.zip
                         apt-get install apache2 -y
                         systemctl start apache2.service
                         cd /var/www/html
-                        echo "Demo Web Server Up and Running!" > index.html
+                        /usr/local/bin/aws s3 cp ${S3Uri} .
+                        unzip -o ${ZipFileName}
+                        rm ${ZipFileName}
                         /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource WebAppASGroup --region ${AWS::Region}
             ImageId: !FindInMap [UbuntuAMI, !Ref AWS::Region, AMI]
             IamInstanceProfile: !Ref InstanceProfileForS3ReadOnlyAccess
