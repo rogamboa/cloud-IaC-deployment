@@ -196,6 +196,7 @@ Resources:
         CreationPolicy:
             ResourceSignal: 
                 Count: !Ref ServerASGDesiredSize
+                Timeout: PT25M
                 
     AppTargetGroup:
         Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -326,6 +327,7 @@ Resources:
         CreationPolicy:
             ResourceSignal:
                 Count: 1
+                Timeout: PT25M
 
 Outputs:
     AppLoadBalancerDNSName:

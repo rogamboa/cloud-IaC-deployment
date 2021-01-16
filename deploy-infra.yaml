@@ -1,0 +1,176 @@
+Description: >
+    Deploys infrastructure stacks.
+
+Metadata:
+    AWS::CloudFormation::Interface:
+        ParameterGroups:
+            - Label:
+                  default: "Environment Configuration"
+              Parameters:
+                  - EnvironmentName
+            - Label:
+                  default: "Template URLs"
+              Parameters:
+                  - NetworkTemplateURL
+                  - ServerTemplateURL
+            - Label:
+                  default: "Network Configuration"
+              Parameters:
+                  - VpcCIDR
+                  - PubSubnet1CIDR
+                  - PubSubnet2CIDR
+                  - PrivSubnet1CIDR
+                  - PrivSubnet2CIDR
+            - Label:
+                  default: "Instance Type Configuration"
+              Parameters:
+                  - InstanceType
+            - Label:
+                  default: "S3 URI of Deployment Zip File"
+              Parameters:
+                  - S3Uri
+                  - ZipFileName
+            - Label:
+                  default: "Autoscaling Group Configuration"
+              Parameters:
+                  - ServerASGMinSize
+                  - ServerASGDesiredSize
+                  - ServerASGMaxSize
+            - Label:
+                  default: "Bastion Host Configuration"
+              Parameters:
+                  - BastionHostCreation
+                  - KeyPairName
+                  - AllowIpToBastionHost
+
+Parameters:
+
+    EnvironmentName:
+        Type: String
+        Description: Environment name that will be used as a prefix for resource names
+        
+    NetworkTemplateURL:
+        Type: String
+        Description: S3 URL to network infrastructure template
+        
+    ServerTemplateURL:
+        Type: String
+        Description: S3 URL to server infrastructure template
+        
+    VpcCIDR:
+        Type: String
+        Description: The CIDR Block for the VPC
+        Default: 10.0.0.0/16
+        AllowedPattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([1-2][0-9]|[3][0-2]|[0-9])$
+        ConstraintDescription: A valid VPC CIDR block must be inputed.
+    
+    PubSubnet1CIDR:
+        Type: String
+        Description: The CIDR Block for the VPC
+        Default: 10.0.0.0/24
+        AllowedPattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([1-2][0-9]|[3][0-2]|[0-9])$
+        ConstraintDescription: A valid VPC CIDR block must be inputed.
+ 
+    PubSubnet2CIDR:
+        Type: String
+        Description: The CIDR Block for the VPC
+        Default: 10.0.1.0/24
+        AllowedPattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([1-2][0-9]|[3][0-2]|[0-9])$
+        ConstraintDescription: A valid VPC CIDR block must be inputed.
+    
+    PrivSubnet1CIDR:
+        Type: String
+        Description: The CIDR Block for the VPC
+        Default: 10.0.2.0/24
+        AllowedPattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([1-2][0-9]|[3][0-2]|[0-9])$
+        ConstraintDescription: A valid VPC CIDR block must be inputed.
+    
+    PrivSubnet2CIDR:
+        Type: String
+        Description: The CIDR Block for the VPC
+        Default: 10.0.3.0/24
+        AllowedPattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([1-2][0-9]|[3][0-2]|[0-9])$
+        ConstraintDescription: A valid VPC CIDR block must be inputed.
+    InstanceType:
+        Type: String
+        Description: Instance type to use for servers
+        Default: t2.micro
+        AllowedValues:
+          - t2.micro
+          - t2.small
+          - t2.medium
+          - t3.micro
+          - t3.small
+          - t3.medium
+    
+    ServerASGMinSize:
+        Type: Number
+        Description: Minimum number of instances for server autoscaling group to maintain
+        Default: 1
+ 
+    ServerASGDesiredSize:
+        Type: Number
+        Description: Desired number of instances for server autoscaling group to maintain
+        Default: 2
+        
+    ServerASGMaxSize:
+        Type: Number
+        Description: Maximum number of instances for server autoscaling group to maintain
+        Default: 2
+        
+    BastionHostCreation:
+        Type: String
+        Description: Create a bastion host for server access in private subnets
+        AllowedValues:
+            - true
+            - false
+        Default: true
+        
+    KeyPairName:
+        Type: String
+        Description: Key pair name to use for bastion host access and server access (Only used if BastionHost is set to true)
+      
+    AllowIpToBastionHost:
+        Type: String
+        Description: Ip address or IP CIDR block to allow access to bastion host (Only used if BastionHost is set to true)
+        AllowedPattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([1-2][0-9]|[3][0-2]|[0-9])$
+        ConstraintDescription: A valid IP CIDR block must be inputed.
+        
+    S3Uri:
+        Type: String
+        Description: S3 URI of where deployment zip file is located (full path to .zip file in S3)
+
+    ZipFileName:
+        Type: String
+        Description: Name of zip file (with .zip extension)
+
+Resources:
+    NetworkStack:
+        Type: AWS::CloudFormation::Stack
+        Properties:
+            TemplateURL: !Ref NetworkTemplateURL     
+            Parameters:
+                EnvironmentName: !Ref EnvironmentName
+                VpcCIDR: !Ref VpcCIDR
+                PubSubnet1CIDR: !Ref PubSubnet1CIDR
+                PubSubnet2CIDR: !Ref PubSubnet2CIDR
+                PrivSubnet1CIDR: !Ref PrivSubnet1CIDR
+                PrivSubnet2CIDR: !Ref PrivSubnet2CIDR
+            
+    ServerStack:
+        Type: AWS::CloudFormation::Stack
+        DependsOn: NetworkStack
+        Properties:
+            TemplateURL: !Ref ServerTemplateURL        
+            Parameters:
+                EnvironmentName: !Ref EnvironmentName
+                InstanceType: !Ref InstanceType
+                ServerASGMinSize: !Ref ServerASGMinSize
+                ServerASGDesiredSize: !Ref ServerASGDesiredSize
+                ServerASGMaxSize: !Ref ServerASGMaxSize
+                BastionHostCreation: !Ref BastionHostCreation
+                AllowIpToBastionHost: !Ref AllowIpToBastionHost
+                KeyPairName: !Ref KeyPairName
+                S3Uri: !Ref S3Uri
+                ZipFileName: !Ref ZipFileName
+                
