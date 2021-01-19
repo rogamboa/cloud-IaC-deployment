@@ -34,7 +34,7 @@ The deployment of cloud infrastructure relies on three CloudFormation template f
     - Optional: 1 Bastion Host Security Group
     
 ## Usage of Scripts to Deploy a Website
-Overview: The deployment involves taking a ```.zip``` of website files stored in an S3 Bucket and deploying the files into Autoscaling group instances running Apache.
+Overview: The deployment involves taking a ```.zip``` of website files stored in an S3 Bucket and deploying the files into Autoscaling group instances running Apache. A LoadBalancer DNS address will be outputted once deployment is complete to allow access to the website.
 
 Prerequisites:
 - ```.zip``` containing website files
@@ -48,5 +48,6 @@ Start deployment:
 - Deploy ```deploy-infra.yaml``` template in AWS CloudFormation providing the ```.zip``` URI link, and URLs for  ```network-infra.yaml``` and ```server-infra.yaml```
 -  Enter/Modify CloudFormation template parameters as necessary
   - Optionally create bastion host or not
-  
-Note: Deployment scripts have only been tested using a static website.
+- When deployment is complete, LoadBalancer DNS name will be displayed in the outputs of the parent stack.
+
+Note: Deployment scripts have only been tested using an HTTP only static website.
