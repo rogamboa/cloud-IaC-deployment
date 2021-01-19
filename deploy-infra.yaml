@@ -124,7 +124,7 @@ Parameters:
         AllowedValues:
             - true
             - false
-        Default: true
+        Default: false
         
     KeyPairName:
         Type: String
@@ -173,4 +173,8 @@ Resources:
                 KeyPairName: !Ref KeyPairName
                 S3Uri: !Ref S3Uri
                 ZipFileName: !Ref ZipFileName
-                
+
+Outputs:
+    AppLoadBalancerDNSName:
+        Description: DNS name of application load balancer for servers
+        Value: !GetAtt ServerStack.Outputs.AppLoadBalancerDNSName
