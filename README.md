@@ -7,7 +7,7 @@ Deploy a website application on to AWS cloud infrastructure designed for high av
 ![](./architecture-diagram.png)
 
 ## Deployment Script Files
-The deployment of cloud infrastructure relies on three CloudFormation template files contained in the repository:
+The deployment of cloud infrastructure relies on three CloudFormation template files contained in the ```scripts``` folder of this repository:
 
 - ```deploy-infra.yaml``` - Primary file used to deploy network infrastructure and server infrastructure using the two files below
   - Deploys the following infrastructure:
