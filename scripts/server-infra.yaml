@@ -46,7 +46,7 @@ Parameters:
     InstanceType:
         Type: String
         Description: Instance type to use for servers
-        Default: t2.micro
+        Default: t2.small
         AllowedValues:
           - t2.micro
           - t2.small
@@ -193,6 +193,8 @@ Resources:
                 !Ref WebAppLaunchConfig
             TargetGroupARNs:
                 - !Ref AppTargetGroup
+            HealthCheckType: ELB
+            HealthCheckGracePeriod: 1500
         CreationPolicy:
             ResourceSignal: 
                 Count: !Ref ServerASGDesiredSize
